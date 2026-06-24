@@ -1,15 +1,49 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getOperationRecords,
   getWalletRecords,
   formatTime,
   getCustomRpc,
+  type OperationRecord,
+  type WalletRecord,
 } from '../../lib/storage';
+import { fetchServerRecords, fetchServerWallets } from '../../lib/adminApi';
 import { DEFAULT_RPC } from '../../lib/solana';
 
+function mergeRecords(
+  local: OperationRecord[],
+  remote: OperationRecord[],
+): OperationRecord[] {
+  const map = new Map<string, OperationRecord>();
+  for (const r of [...remote, ...local]) {
+    map.set(r.id, r);
+  }
+  return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+}
+
+function mergeWallets(local: WalletRecord[], remote: WalletRecord[]): WalletRecord[] {
+  const map = new Map<string, WalletRecord>();
+  for (const r of [...remote, ...local]) {
+    map.set(r.address, r);
+  }
+  return Array.from(map.values());
+}
+
 export default function AdminDashboard() {
-  const records = getOperationRecords();
-  const wallets = getWalletRecords();
+  const [records, setRecords] = useState<OperationRecord[]>([]);
+  const [wallets, setWallets] = useState<WalletRecord[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetchServerRecords().catch(() => []),
+      fetchServerWallets().catch(() => []),
+    ]).then(([remoteRecords, remoteWallets]) => {
+      setRecords(mergeRecords(getOperationRecords(), remoteRecords));
+      setWallets(mergeWallets(getWalletRecords(), remoteWallets));
+    });
+  }, []);
+
   const openSourceCount = records.filter((r) => r.type === 'opensource').length;
   const authorityCount = records.filter((r) => r.type === 'authority').length;
 
@@ -41,6 +75,10 @@ export default function AdminDashboard() {
         <div className="admin-info-row">
           <span>RPC 节点</span>
           <span className="mono">{getCustomRpc() || DEFAULT_RPC}</span>
+        </div>
+        <div className="admin-info-row">
+          <span>后台地址</span>
+          <span className="mono">/admin</span>
         </div>
       </div>
 
