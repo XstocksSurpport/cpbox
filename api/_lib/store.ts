@@ -18,7 +18,7 @@ async function readJson<T>(pathname: string): Promise<T[]> {
   const result = await get(pathname, { access: 'private' });
   if (!result) return [];
 
-  const text = await result.stream.text();
+  const text = await new Response(result.stream as BodyInit).text();
   if (!text) return [];
   return JSON.parse(text) as T[];
 }
