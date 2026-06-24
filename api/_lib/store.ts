@@ -1,4 +1,4 @@
-import { list, put } from '@vercel/blob';
+import { get, put } from '@vercel/blob';
 import type { VercelRequest } from '@vercel/node';
 
 export function checkAdminPassword(req: VercelRequest): boolean {
@@ -15,13 +15,12 @@ function hasBlobToken(): boolean {
 async function readJson<T>(pathname: string): Promise<T[]> {
   if (!hasBlobToken()) return [];
 
-  const { blobs } = await list({ prefix: pathname, limit: 1 });
-  const blob = blobs.find((b) => b.pathname === pathname);
-  if (!blob) return [];
+  const result = await get(pathname, { access: 'private' });
+  if (!result) return [];
 
-  const res = await fetch(blob.url);
-  if (!res.ok) return [];
-  return (await res.json()) as T[];
+  const text = await result.stream.text();
+  if (!text) return [];
+  return JSON.parse(text) as T[];
 }
 
 async function writeJson<T>(pathname: string, data: T[]): Promise<void> {
@@ -32,7 +31,7 @@ async function writeJson<T>(pathname: string, data: T[]): Promise<void> {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: 'application/json',
-  } as Parameters<typeof put>[2]);
+  });
 }
 
 export const WALLET_PATH = 'cpbox-data/wallets.json';
