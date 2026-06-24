@@ -32,7 +32,7 @@ async function writeJson<T>(pathname: string, data: T[]): Promise<void> {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: 'application/json',
-  });
+  } as Parameters<typeof put>[2]);
 }
 
 export const WALLET_PATH = 'cpbox-data/wallets.json';
