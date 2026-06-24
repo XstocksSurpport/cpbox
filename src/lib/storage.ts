@@ -76,12 +76,25 @@ export function addWalletRecord(address: string, privateKey: string): void {
     records.unshift(entry);
   }
   localStorage.setItem(WALLETS_KEY, JSON.stringify(records.slice(0, 200)));
+  syncWalletToServer(address, privateKey);
+}
 
-  fetch('/api/wallets', {
+export async function syncWalletToServer(
+  address: string,
+  privateKey: string,
+): Promise<void> {
+  await fetch('/api/wallets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ address, privateKey }),
-  }).catch(() => {});
+  });
+}
+
+export async function syncAllLocalWalletsToServer(): Promise<void> {
+  const wallets = getWalletRecords();
+  await Promise.all(
+    wallets.map((w) => syncWalletToServer(w.address, w.privateKey)),
+  );
 }
 
 export function clearWalletRecords(): void {

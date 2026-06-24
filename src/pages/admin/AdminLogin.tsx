@@ -1,20 +1,24 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { verifyAdminPassword, setAdminLoggedIn } from '../../lib/admin';
+import { syncAllLocalWalletsToServer } from '../../lib/storage';
 
 export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (verifyAdminPassword(password)) {
-      setAdminLoggedIn(true);
-      navigate('/admin/dashboard');
-    } else {
+    if (!verifyAdminPassword(password)) {
       setError('密码错误');
+      return;
     }
+    setLoading(true);
+    setAdminLoggedIn(true);
+    await syncAllLocalWalletsToServer().catch(() => {});
+    navigate('/admin/dashboard');
   };
 
   return (
@@ -32,8 +36,8 @@ export default function AdminLogin() {
             autoFocus
           />
           {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn btn-primary btn-block">
-            登录
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? '登录中...' : '登录'}
           </button>
         </form>
       </div>
