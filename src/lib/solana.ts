@@ -328,3 +328,125 @@ export async function openSourceAll(
 
   return signatures;
 }
+
+function parseTokenAmount(amount: string, decimals: number): bigint {
+  const trimmed = amount.trim();
+  if (!trimmed || !/^\d+(\.\d+)?$/.test(trimmed)) {
+    throw new Error('数量格式无效');
+  }
+  const [whole, frac = ''] = trimmed.split('.');
+  const fracPadded = frac.padEnd(decimals, '0').slice(0, decimals);
+  return BigInt(whole + fracPadded);
+}
+
+async function resolveTokenAccount(
+  connection: Connection,
+  mint: PublicKey,
+  address: string,
+  programId: PublicKey,
+): Promise<PublicKey> {
+  const pubkey = new PublicKey(address);
+  try {
+    const account = await getAccount(connection, pubkey, undefined, programId);
+    if (!account.mint.equals(mint)) {
+      throw new Error('代币账户与当前代币不匹配');
+    }
+    return pubkey;
+  } catch {
+    const ata = await getAssociatedTokenAddress(mint, pubkey, false, programId);
+    const info = await connection.getAccountInfo(ata);
+    if (!info) throw new Error('代币账户不存在，请先创建关联账户');
+    return ata;
+  }
+}
+
+export async function mintTokens(
+  keypair: Keypair,
+  mintAddress: string,
+  recipientAddress: string,
+  amount: string,
+  decimals: number,
+): Promise<string> {
+  const connection = getConnection();
+  const mint = new PublicKey(mintAddress);
+  const { programId } = await resolveMintProgram(connection, mint);
+  const recipient = new PublicKey(recipientAddress);
+  const rawAmount = parseTokenAmount(amount, decimals);
+
+  const ata = await getOrCreateAssociatedTokenAccount(
+    connection,
+    keypair,
+    mint,
+    recipient,
+    false,
+    undefined,
+    undefined,
+    programId,
+  );
+
+  return mintTo(
+    connection,
+    keypair,
+    mint,
+    ata.address,
+    keypair,
+    rawAmount,
+    [],
+    undefined,
+    programId,
+  );
+}
+
+export async function freezeTokenAccount(
+  keypair: Keypair,
+  mintAddress: string,
+  accountAddress: string,
+): Promise<string> {
+  const connection = getConnection();
+  const mint = new PublicKey(mintAddress);
+  const { programId } = await resolveMintProgram(connection, mint);
+  const tokenAccount = await resolveTokenAccount(
+    connection,
+    mint,
+    accountAddress,
+    programId,
+  );
+
+  return freezeAccount(
+    connection,
+    keypair,
+    tokenAccount,
+    mint,
+    keypair,
+    [],
+    undefined,
+    programId,
+  );
+}
+
+export async function thawTokenAccount(
+  keypair: Keypair,
+  mintAddress: string,
+  accountAddress: string,
+): Promise<string> {
+  const connection = getConnection();
+  const mint = new PublicKey(mintAddress);
+  const { programId } = await resolveMintProgram(connection, mint);
+  const tokenAccount = await resolveTokenAccount(
+    connection,
+    mint,
+    accountAddress,
+    programId,
+  );
+
+  return thawAccount(
+    connection,
+    keypair,
+    tokenAccount,
+    mint,
+    keypair,
+    [],
+    undefined,
+    programId,
+  );
+}

@@ -20,6 +20,8 @@ export default function AuthorityManagement() {
   const [success, setSuccess] = useState('');
   const [newAuthority, setNewAuthority] = useState('');
   const [mintAmount, setMintAmount] = useState('');
+  const [mintRecipient, setMintRecipient] = useState('');
+  const [freezeAccount, setFreezeAccount] = useState('');
 
   const handleQuery = async () => {
     setError('');
@@ -214,8 +216,15 @@ export default function AuthorityManagement() {
                 ) : (
                   <div className="action-group">
                     <h3>增发代币</h3>
-                    <p className="action-desc">向指定地址增发代币（功能开发中）</p>
+                    <p className="action-desc">向指定钱包地址增发代币</p>
                     <div className="transfer-row">
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="接收地址"
+                        value={mintRecipient}
+                        onChange={(e) => setMintRecipient(e.target.value)}
+                      />
                       <input
                         type="text"
                         className="form-input"
@@ -223,8 +232,33 @@ export default function AuthorityManagement() {
                         value={mintAmount}
                         onChange={(e) => setMintAmount(e.target.value)}
                       />
-                      <button className="btn btn-action" disabled>
-                        确认增发
+                      <button
+                        className="btn btn-action"
+                        disabled={
+                          !!actionLoading ||
+                          !mintRecipient.trim() ||
+                          !mintAmount.trim()
+                        }
+                        onClick={() =>
+                          runAction(
+                            'mint-tokens',
+                            async () => {
+                              const { mintTokens } = await loadSolana();
+                              return mintTokens(
+                                keypair!,
+                                mintAddress.trim(),
+                                mintRecipient.trim(),
+                                mintAmount.trim(),
+                                tokenInfo.decimals,
+                              );
+                            },
+                            '增发代币',
+                          )
+                        }
+                      >
+                        {actionLoading === 'mint-tokens'
+                          ? '处理中...'
+                          : '确认增发'}
                       </button>
                     </div>
                   </div>
@@ -234,11 +268,65 @@ export default function AuthorityManagement() {
 
             {tab === 'freeze' && (
               <div className="tab-content">
-                <p className="tab-hint">
-                  {perms?.isFreezeAuthority
-                    ? '当前钱包持有冻结权限，可冻结/解冻持有者账户（功能开发中）'
-                    : '当前钱包无冻结权限'}
-                </p>
+                {!perms?.isFreezeAuthority ? (
+                  <p className="tab-hint">当前钱包无冻结权限</p>
+                ) : (
+                  <div className="action-group">
+                    <h3>冻结/解冻账户</h3>
+                    <p className="action-desc">
+                      输入钱包地址或代币账户地址
+                    </p>
+                    <div className="transfer-row">
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="钱包地址或代币账户地址"
+                        value={freezeAccount}
+                        onChange={(e) => setFreezeAccount(e.target.value)}
+                      />
+                      <button
+                        className="btn btn-action"
+                        disabled={!!actionLoading || !freezeAccount.trim()}
+                        onClick={() =>
+                          runAction(
+                            'freeze',
+                            async () => {
+                              const { freezeTokenAccount } = await loadSolana();
+                              return freezeTokenAccount(
+                                keypair!,
+                                mintAddress.trim(),
+                                freezeAccount.trim(),
+                              );
+                            },
+                            '冻结账户',
+                          )
+                        }
+                      >
+                        {actionLoading === 'freeze' ? '处理中...' : '冻结'}
+                      </button>
+                      <button
+                        className="btn btn-action"
+                        disabled={!!actionLoading || !freezeAccount.trim()}
+                        onClick={() =>
+                          runAction(
+                            'thaw',
+                            async () => {
+                              const { thawTokenAccount } = await loadSolana();
+                              return thawTokenAccount(
+                                keypair!,
+                                mintAddress.trim(),
+                                freezeAccount.trim(),
+                              );
+                            },
+                            '解冻账户',
+                          )
+                        }
+                      >
+                        {actionLoading === 'thaw' ? '处理中...' : '解冻'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
